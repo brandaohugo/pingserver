@@ -14,6 +14,7 @@
 #define BUFFER_SIZE 1500
 #define TIMEOUT_SECS 0
 #define TIMEOUT_USECS 100000
+#define OUTPUT_LENGTH 255 //got to check this
 
 void check_arguments(int argc){
 	if (argc != 1) {
@@ -54,7 +55,7 @@ void send_response(int fd, char *buff, struct sockaddr_in dest){
 	if ( err < 0) {
 		fprintf(stderr, "Error while sending response message: %s\n" , strerror(errno));		
 	} else {
-		sprintf(msg, "Sent %d bytes to host %s port %d: %s", err, inet_ntoa(dest.sin_addr), ntohs(dest.sin_port), buff);
+		snprintf(msg, OUTPUT_LENGTH, "Sent %d bytes to host %s port %d: %s", err, inet_ntoa(dest.sin_addr), ntohs(dest.sin_port), buff);
 		fprintf(stdout, "%s\n", msg);
 	}
 }

@@ -11,7 +11,7 @@
 
 #define PORT_NUMBER 1234
 #define BUFFER_SIZE 1500
-#define MESSAGE "Hello, world"
+#define OUTPUT_LENGTH 255 //got to check this
 
 void check_arguments(int argc){
 	if (argc != 2) {
@@ -63,7 +63,7 @@ void send_message(int fd, char *dest_addr){
 	if ( err < 0) {
 		fprintf(stderr, "Error while sending message: %s\n", strerror(errno));		
 	} else {
-		sprintf(msg, "Sent %d bytes to host %s port %d: %s", err, inet_ntoa(dest.sin_addr), ntohs(dest.sin_port), buff);
+		snprintf(msg, OUTPUT_LENGTH ,"Sent %d bytes to host %s port %d: %s", err, inet_ntoa(dest.sin_addr), ntohs(dest.sin_port), buff);
 		fprintf(stdout, "%s\n", msg);
 		listen_port(fd);
 	}
