@@ -6,6 +6,8 @@
 #include <sys/socket.h>
 #include <sys/select.h>
 #include <unistd.h>
+#include <errno.h>
+#include <string.h>
 
 #define TRUE 1
 #define PORT_NUMBER 1234
@@ -23,7 +25,7 @@ void check_arguments(int argc){
 int create_socket(){
 	int fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
 	if(fd < 0) {
-		fprintf(stderr, "Error while creating the socket");
+		fprintf(stderr, "Error while creating the socket: %s\n", strerror(errno));
 		exit(1);
 	}
 	return fd;
@@ -39,7 +41,7 @@ void bind_socket(int fd) {
 
 	err = bind(fd, (struct sockaddr *) &addr, sizeof(struct sockaddr_in));
 	if (err < 0) {
-		fprintf(stderr, "Error while assigning address to the socket.");
+		fprintf(stderr, "Error while assigning address to the socket: %s\n", strerror(errno));
 		exit(1);
 	}
 }
@@ -50,7 +52,7 @@ void send_response(int fd, char *buff, struct sockaddr_in dest){
 
 	err = sendto(fd, buff, BUFFER_SIZE, 0, (struct sockaddr*) &dest, sizeof(struct sockaddr_in));
 	if ( err < 0) {
-		fprintf(stderr, "Error while sending response message");		
+		fprintf(stderr, "Error while sending response message: %s\n" , strerror(errno));		
 	} else {
 		sprintf(msg, "Sent %d bytes to host %s port %d: %s", err, inet_ntoa(dest.sin_addr), ntohs(dest.sin_port), buff);
 		fprintf(stdout, "%s\n", msg);
@@ -76,7 +78,7 @@ void listen_port(int fd) {
 
 	nb = select(fd+1, &read_set, NULL, NULL, &timeout);
 	if (nb < 0) {
-		fprintf(stderr, "Error while setting timeout\n");		
+		fprintf(stderr, "Error while setting timeout: %s\n", strerror(errno));		
 	}
 	if (nb == 0) {
 		//fprintf(stderr, "Timeout\n");			
@@ -86,7 +88,7 @@ void listen_port(int fd) {
 		err = recvfrom( fd, buff, BUFFER_SIZE, 0, (struct sockaddr *) &from, &flen);
 		
 		if (err < 0)	 {
-			fprintf(stderr, "Error while receiving message");		
+			fprintf(stderr, "Error while receiving message: %s\n", strerror(errno));		
 		} else {
 			sprintf(msg, "Received %d bytes from host %s port %d: %s", err, inet_ntoa(from.sin_addr), ntohs(from.sin_port), buff);
 			fprintf(stdout, "%s\n", msg);
@@ -113,7 +115,7 @@ int main(int argc, char** argv) {
 
 	err = close(socket_fd);
 	if( err < 0){
-		fprintf(stderr, "Error while closing the socket");
+		fprintf(stderr, "Error while closing the socket: %s\n", strerror(errno));
 		exit(1);
 	}
 
