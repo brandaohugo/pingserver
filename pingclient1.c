@@ -6,6 +6,8 @@
 #include <sys/socket.h>
 #include <sys/select.h>
 #include <unistd.h>
+#include <errno.h>
+#include <string.h>
 
 #define PORT_NUMBER 1234
 #define BUFFER_SIZE 1500
@@ -21,7 +23,7 @@ void check_arguments(int argc){
 int create_socket(){
 	int fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
 	if(fd < 0) {
-		fprintf(stderr, "Error while creating the socket");
+		fprintf(stderr, "Error while creating the socket: %s\n", strerror(errno));
 		exit(1);
 	}
 	return fd;
@@ -37,9 +39,13 @@ void bind_socket(int fd) {
 
 	err = bind(fd, (struct sockaddr *) &addr, sizeof(struct sockaddr_in));
 	if (err < 0) {
-		fprintf(stderr, "Error while assigning address to the socket.");
+		fprintf(stderr, "Error while assigning address to the socket: %s\n", strerror(errno));
 		exit(1);
 	}
+}
+
+void listen_port(int fd) {
+	
 }
 
 void send_message(int fd, char *dest_addr){
@@ -55,7 +61,7 @@ void send_message(int fd, char *dest_addr){
 
 	err = sendto(fd, buff, BUFFER_SIZE, 0, (struct sockaddr*) &dest, sizeof(struct sockaddr_in));
 	if ( err < 0) {
-		fprintf(stderr, "Error while sending message\n");		
+		fprintf(stderr, "Error while sending message: %s\n", strerror(errno));		
 	} else {
 		sprintf(msg, "Sent %d bytes to host %s port %d: %s", err, inet_ntoa(dest.sin_addr), ntohs(dest.sin_port), buff);
 		fprintf(stdout, "%s\n", msg);
@@ -63,9 +69,6 @@ void send_message(int fd, char *dest_addr){
 	}
 }
 
-void listen_port(int fd) {
-	
-}
 
 int main(int argc, char** argv) {
 	int socket_fd;
