@@ -15,7 +15,7 @@
 
 void check_arguments(int argc){
 	if (argc != 2) {
-		fprintf(stderr,"Usage: pingclient1 <destination address/name>");
+		fprintf(stderr,"Usage: pingclient1 <destination address/name>\n");
 		exit(1);
 	}
 }
@@ -46,6 +46,21 @@ void bind_socket(int fd) {
 
 void listen_port(int fd) {
 	
+	int err;
+	char buff[BUFFER_SIZE];
+	char msg[BUFFER_SIZE];
+	socklen_t flen;
+	struct sockaddr_in from;
+
+	flen = sizeof(struct sockaddr_in);
+	err = recvfrom(fd, buff, BUFFER_SIZE, 0, (struct sockaddr *) &from, &flen);
+	printf("%d\n", err);
+	if (err < 0) {
+		fprintf(stderr, "Erro while receiving the message: %s\n", strerror(errno));
+	} else {
+		snprintf(msg, OUTPUT_LENGTH, "Received %d btes from host %s on port %d: %s\n", err, inet_ntoa(from.sin_addr), ntohs(from.sin_port), buff);
+		fprintf(stdout, "%s\n" , msg);
+	}
 }
 
 void send_message(int fd, char *dest_addr){

@@ -65,6 +65,7 @@ void listen_port(int fd) {
 	int err,nb;
 	//TODO: check buffer and message sizes
 	//TODO: clean the buffer
+	//TODO: remove timeout
 	char buff[BUFFER_SIZE];
 	char msg[BUFFER_SIZE];
 	socklen_t flen;
