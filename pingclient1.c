@@ -9,16 +9,18 @@
 #include <errno.h>
 #include <string.h>
 #include <sys/time.h>
+#include <netdb.h>
 
 #define PORT_NUMBER 1234
-#define BUFFER_SIZE 1500
+#define BUFFER_SIZE 500
 #define OUTPUT_LENGTH 255 //got to check this
-#define USEC_PER_SEC 1000
+#define USEC_PER_SEC 100000
+#define MESSAGE "Echo"
 
 void check_arguments(int argc){
 	if (argc != 2) {
 		fprintf(stderr,"Usage: pingclient1 <destination address/name>\n");
-		exit(1);
+		exit(EXIT_FAILURE);
 	}
 }
 
@@ -46,39 +48,30 @@ void bind_socket(int fd) {
 	}
 }
 
-void listen_port(int fd, struct timeval *tv1) {
-	
-	int err, fin_time;
-	double tot_time;
-	char buff[BUFFER_SIZE];
-	char msg[BUFFER_SIZE];
+int listen_port(int fd) {	
+	int err;	
+	char buff[BUFFER_SIZE];	
 	socklen_t flen;
 	struct sockaddr_in from;
-	struct timeval *tv2 = malloc(sizeof(struct timeval));
-
-	flen = sizeof(struct sockaddr_in);
+	
+	flen = sizeof(struct sockaddr_in);	
 	err = recvfrom(fd, buff, BUFFER_SIZE, 0, (struct sockaddr *) &from, &flen);	
 	if (err < 0) {
-		fprintf(stderr, "Erro while receiving the message: %s\n", strerror(errno));
-	} else {
-		fin_time = gettimeofday(tv2, NULL);
-		if (fin_time < 0) {
-			fprintf(stderr, "Error while setting the timer: %s\n", strerror(errno));		
-		}
-		tot_time = (tv2->tv_usec - tv1->tv_usec) / USEC_PER_SEC;
-		snprintf(msg, OUTPUT_LENGTH, "The RTT was: %f seconds.\n", tot_time);
-		fprintf(stdout, "%s\n" , msg);
+		fprintf(stderr, "Error while receiving the message: %s\n", strerror(errno));
+		return 0;
+	} else {		
+		return 1;				
 	}
-	free(tv1);
-	free(tv2);
 }
 
 void send_message(int fd, char *dest_addr){
-	int err,init_time;
-	char buff[BUFFER_SIZE];
-	//char msg[BUFFER_SIZE];
+	int err;
+	long int init_time, fin_time;
+	double tot_time;
+	char buff[BUFFER_SIZE] = MESSAGE;	
 	struct sockaddr_in dest;
-	struct timeval *tv = malloc(sizeof(struct timeval));
+	struct timeval *tv1 = malloc(sizeof(struct timeval));
+	struct timeval *tv2 = malloc(sizeof(struct timeval));
 
 	dest.sin_family = AF_INET;
 	dest.sin_port = htons(PORT_NUMBER);
@@ -88,14 +81,21 @@ void send_message(int fd, char *dest_addr){
 	if ( err < 0) {
 		fprintf(stderr, "Error while sending message: %s\n", strerror(errno));		
 	} else {
-		init_time = gettimeofday(tv, NULL);
+		init_time = gettimeofday(tv1, NULL);
 		if (init_time < 0) {
 			fprintf(stderr, "Error while setting the timer: %s\n", strerror(errno));		
+		}				
+		if(listen_port(fd)) {
+			fin_time = gettimeofday(tv2, NULL);
+			if (fin_time < 0) {
+				fprintf(stderr, "Error while setting the timer: %s\n", strerror(errno));		
+			}		
+			tot_time = ((double) (tv2->tv_usec - tv1->tv_usec)) / USEC_PER_SEC;
+			printf("The RTT was: %f seconds.\n", tot_time);
 		}
-		//snprintf(msg, OUTPUT_LENGTH ,"Sent %d bytes to host %s port %d: %s", err, inet_ntoa(dest.sin_addr), ntohs(dest.sin_port), buff);
-		//fprintf(stdout, "%s\n", msg);
-		listen_port(fd, tv);
 	}
+	free(tv1);
+	free(tv2);
 }
 
 
