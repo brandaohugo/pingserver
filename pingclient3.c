@@ -13,13 +13,16 @@
 
 #define PORT_NUMBER 1234
 #define BUFFER_SIZE 500
-#define OUTPUT_LENGTH 255 //got to check this
-#define USEC_PER_SEC 100000
+#define OUTPUT_LENGTH 255
+#define USEC_PER_SEC 1000000
 #define MESSAGE "Echo"
-#define TIMEOUT_SEC 5
-#define TRUE 1
+#define TIMEOUT_SEC 1
 
-int packet_no;
+
+double rtt;
+struct timeval *tv1;  
+struct timeval *tv2;
+struct timeval *tv_tot;
 
 void check_arguments(int argc){
 	if (argc != 2) {
@@ -59,13 +62,18 @@ int listen_port(int fd) {
 	struct sockaddr_in from;
 	fd_set read_set;
 	struct timeval timeout;
+	
 
 	FD_ZERO(&read_set);
 	FD_SET(fd, &read_set);
 	timeout.tv_usec = 0;
 	timeout.tv_sec = TIMEOUT_SEC;
-
+	
 	nb = select(fd+1, &read_set, NULL, NULL, &timeout);
+	err = gettimeofday(tv2,NULL);
+	if (err < 0) {
+		fprintf(stderr, "Error while setting the timer: %s\n", strerror(errno));		
+	}
 	if(nb < 0) {
 		fprintf(stderr, "Error while setting timeout: %s\n", strerror(errno));
 		return 0;
@@ -74,7 +82,8 @@ int listen_port(int fd) {
 		printf("The packet was lost.\n");
 		return 0;
 	}
-	if(FD_ISSET(fd,&read_set)) {
+	if(FD_ISSET(fd,&read_set)) {		
+		usleep((timeout.tv_usec));
 		flen = sizeof(struct sockaddr_in);	
 		err = recvfrom(fd, buff, BUFFER_SIZE, 0, (struct sockaddr *) &from, &flen);	
 		if (err < 0) {
@@ -83,45 +92,49 @@ int listen_port(int fd) {
 		} else {		
 			return 1;				
 		}
-	}
+	}	
 	return 0;
 }
 
-void send_message(int fd, char *dest_addr){
-	int err;
-	long int init_time, fin_time;
-	double tot_time;
+void send_message(int fd, char *dest_hostname){
+	int err;	
 	char buff[BUFFER_SIZE] = MESSAGE;	
 	struct sockaddr_in dest;
-	struct timeval *tv1 = malloc(sizeof(struct timeval));
-	struct timeval *tv2 = malloc(sizeof(struct timeval));
+	struct hostent *he;
+	
+	tv1 = malloc(sizeof(struct timeval));	
+	tv2 = malloc(sizeof(struct timeval));
+	tv_tot = malloc(sizeof(struct timeval));		
 
+	he = gethostbyname(dest_hostname);
+	if( he == NULL) {
+		fprintf(stderr, "The name '%s' could not be resolved.\n", dest_hostname);
+		exit(1);		
+	}
+	
 	dest.sin_family = AF_INET;
 	dest.sin_port = htons(PORT_NUMBER);
-	dest.sin_addr.s_addr = inet_addr(dest_addr);	
+	memcpy(&dest.sin_addr, he->h_addr_list[0], he->h_length);	
 
 	err = sendto(fd, buff, BUFFER_SIZE, 0, (struct sockaddr*) &dest, sizeof(struct sockaddr_in));
 	if ( err < 0) {
 		fprintf(stderr, "Error while sending message: %s\n", strerror(errno));		
-	} else {
-		init_time = gettimeofday(tv1, NULL);		
-		if (init_time < 0) {
+	} else {		
+		err = gettimeofday(tv1,NULL);
+		if (err < 0) {
 			fprintf(stderr, "Error while setting the timer: %s\n", strerror(errno));		
-		}
-		packet_no += 1;				
+		}		
 		if(listen_port(fd)) {
-			fin_time = gettimeofday(tv2, NULL);
-			if (fin_time < 0) {
-				fprintf(stderr, "Error while setting the timer: %s\n", strerror(errno));		
-			}		
-			tot_time = ((double) (tv2->tv_usec - tv1->tv_usec)) / USEC_PER_SEC;
-			printf("The RTT was: %f seconds.\n", tot_time);
-		}
+			timersub(tv2,tv1,tv_tot);
+			//printf("%d\n", (int) (tv_tot->tv_usec));
+			rtt = ((double) (tv_tot->tv_usec)) / USEC_PER_SEC;
+			printf("The RTT was: %f seconds.\n", rtt);
+		}		
 	}
 	free(tv1);
 	free(tv2);
+	free(tv_tot);
 }
-
 
 int main(int argc, char** argv) {
 	int socket_fd;
@@ -131,11 +144,10 @@ int main(int argc, char** argv) {
 	socket_fd = create_socket();
 
 	bind_socket(socket_fd);
-
-	packet_no = 0;
-	while(TRUE) {
+	
+	for (;;) {
 		send_message(socket_fd, (char *) argv[1]);	
 	}
-
+	
 	return 0;
 }

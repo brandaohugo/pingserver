@@ -64,19 +64,25 @@ int listen_port(int fd) {
 	}
 }
 
-void send_message(int fd, char *dest_addr){
+void send_message(int fd, char *dest_hostname){
 	int err;
 	long int init_time, fin_time;
 	double tot_time;
 	char buff[BUFFER_SIZE] = MESSAGE;	
 	struct sockaddr_in dest;
+	struct hostent *he;
 	struct timeval *tv1 = malloc(sizeof(struct timeval));
 	struct timeval *tv2 = malloc(sizeof(struct timeval));
 
+	he = gethostbyname(dest_hostname);
+	if( he == NULL) {
+		fprintf(stderr, "The name '%s' could not be resolved.\n", dest_hostname);
+		exit(1);		
+	}
+	
 	dest.sin_family = AF_INET;
 	dest.sin_port = htons(PORT_NUMBER);
-	dest.sin_addr.s_addr = inet_addr(dest_addr);	
-
+	memcpy(&dest.sin_addr, he->h_addr_list[0], he->h_length);
 	err = sendto(fd, buff, BUFFER_SIZE, 0, (struct sockaddr*) &dest, sizeof(struct sockaddr_in));
 	if ( err < 0) {
 		fprintf(stderr, "Error while sending message: %s\n", strerror(errno));		

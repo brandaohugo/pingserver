@@ -16,7 +16,7 @@
 #define OUTPUT_LENGTH 255
 #define USEC_PER_SEC 100000
 #define MESSAGE "Echo"
-#define TIMEOUT_SEC 5
+#define TIMEOUT_SEC 1
 
 void check_arguments(int argc){
 	if (argc != 2) {
@@ -94,7 +94,8 @@ void send_message(int fd, char *dest_hostname){
 	struct timeval *tv1 = malloc(sizeof(struct timeval));
 	struct timeval *tv2 = malloc(sizeof(struct timeval));
 	
-	if( (he = gethostbyname(dest_hostname)) == NULL) {
+	he = gethostbyname(dest_hostname);
+	if( he == NULL) {
 		fprintf(stderr, "The name '%s' could not be resolved.\n", dest_hostname);
 		exit(1);		
 	}
