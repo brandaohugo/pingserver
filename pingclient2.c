@@ -13,7 +13,7 @@
 
 #define PORT_NUMBER 1234
 #define BUFFER_SIZE 500
-#define OUTPUT_LENGTH 255 //got to check this
+#define OUTPUT_LENGTH 255
 #define USEC_PER_SEC 100000
 #define MESSAGE "Echo"
 #define TIMEOUT_SEC 5
@@ -84,18 +84,24 @@ int listen_port(int fd) {
 	return 0;
 }
 
-void send_message(int fd, char *dest_addr){
+void send_message(int fd, char *dest_hostname){
 	int err;
 	long int init_time, fin_time;
 	double tot_time;
 	char buff[BUFFER_SIZE] = MESSAGE;	
 	struct sockaddr_in dest;
+	struct hostent *he;
 	struct timeval *tv1 = malloc(sizeof(struct timeval));
 	struct timeval *tv2 = malloc(sizeof(struct timeval));
-
+	
+	if( (he = gethostbyname(dest_hostname)) == NULL) {
+		fprintf(stderr, "The name '%s' could not be resolved.\n", dest_hostname);
+		exit(1);		
+	}
+	
 	dest.sin_family = AF_INET;
 	dest.sin_port = htons(PORT_NUMBER);
-	dest.sin_addr.s_addr = inet_addr(dest_addr);	
+	memcpy(&dest.sin_addr, he->h_addr_list[0], he->h_length);	
 
 	err = sendto(fd, buff, BUFFER_SIZE, 0, (struct sockaddr*) &dest, sizeof(struct sockaddr_in));
 	if ( err < 0) {
@@ -117,7 +123,6 @@ void send_message(int fd, char *dest_addr){
 	free(tv1);
 	free(tv2);
 }
-
 
 int main(int argc, char** argv) {
 	int socket_fd;
