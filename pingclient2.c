@@ -12,8 +12,7 @@
 #include <netdb.h>
 
 #define PORT_NUMBER 1234
-#define BUFFER_SIZE 500
-#define OUTPUT_LENGTH 255
+#define BUFFER_SIZE 64
 #define USEC_PER_SEC 100000
 #define MESSAGE "Echo"
 #define TIMEOUT_SEC 1
@@ -49,6 +48,14 @@ void bind_socket(int fd) {
 	}
 }
 
+void clear_buffer(char *buff) {
+	int i;
+	for(i = 0 ; i < BUFFER_SIZE; i++){
+		buff[i] = '\0';
+	}	
+}
+
+
 int listen_port(int fd) {	
 	int err,nb;	
 	char buff[BUFFER_SIZE];	
@@ -57,6 +64,7 @@ int listen_port(int fd) {
 	fd_set read_set;
 	struct timeval timeout;
 
+	clear_buffer(buff);
 	FD_ZERO(&read_set);
 	FD_SET(fd, &read_set);
 	timeout.tv_usec = 0;
@@ -68,7 +76,11 @@ int listen_port(int fd) {
 		return 0;
 	} 
 	if (nb == 0) {
-		printf("The packet was lost.\n");
+		err = printf("The packet was lost.\n");
+		if (err < 0) {
+			fprintf(stderr, "Error while writting output: %s\n", strerror(errno));
+			exit(1);
+		}
 		return 0;
 	}
 	if(FD_ISSET(fd,&read_set)) {
@@ -86,13 +98,13 @@ int listen_port(int fd) {
 
 void send_message(int fd, char *dest_hostname){
 	int err;
-	long int init_time, fin_time;
-	double tot_time;
+	double rtt;
 	char buff[BUFFER_SIZE] = MESSAGE;	
 	struct sockaddr_in dest;
 	struct hostent *he;
 	struct timeval *tv1 = malloc(sizeof(struct timeval));
 	struct timeval *tv2 = malloc(sizeof(struct timeval));
+	struct timeval *tv_tot = malloc(sizeof(struct timeval));
 	
 	he = gethostbyname(dest_hostname);
 	if( he == NULL) {
@@ -108,21 +120,23 @@ void send_message(int fd, char *dest_hostname){
 	if ( err < 0) {
 		fprintf(stderr, "Error while sending message: %s\n", strerror(errno));		
 	} else {
-		init_time = gettimeofday(tv1, NULL);
-		if (init_time < 0) {
+		err = gettimeofday(tv1, NULL);
+		if (err < 0) {
 			fprintf(stderr, "Error while setting the timer: %s\n", strerror(errno));		
 		}				
 		if(listen_port(fd)) {
-			fin_time = gettimeofday(tv2, NULL);
-			if (fin_time < 0) {
+			err = gettimeofday(tv2, NULL);
+			if (err < 0) {
 				fprintf(stderr, "Error while setting the timer: %s\n", strerror(errno));		
 			}		
-			tot_time = ((double) (tv2->tv_usec - tv1->tv_usec)) / USEC_PER_SEC;
-			printf("The RTT was: %f seconds.\n", tot_time);
+			timersub(tv2,tv1,tv_tot);			
+			rtt = ((double) (tv_tot->tv_usec)) / USEC_PER_SEC;			
+			printf("The RTT was: %f seconds.\n", rtt);
 		}
 	}
 	free(tv1);
 	free(tv2);
+	free(tv_tot);
 }
 
 int main(int argc, char** argv) {

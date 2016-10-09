@@ -11,10 +11,7 @@
 
 #define TRUE 1
 #define PORT_NUMBER 1234
-#define BUFFER_SIZE 1500
-#define TIMEOUT_SECS 0
-#define TIMEOUT_USECS 100000
-#define OUTPUT_LENGTH 255 //got to check this
+#define BUFFER_SIZE 64
 
 void check_arguments(int argc){
 	if (argc != 1) {
@@ -47,56 +44,49 @@ void bind_socket(int fd) {
 	}
 }
 
+void clear_buffer(char *buff) {
+	int i;
+	for(i = 0 ; i < BUFFER_SIZE; i++){
+		buff[i] = '\0';
+	}	
+}
+
 void send_response(int fd, char *buff, struct sockaddr_in dest){
-	int err;
-	char msg[BUFFER_SIZE];
+	int err;	
 
 	err = sendto(fd, buff, BUFFER_SIZE, 0, (struct sockaddr*) &dest, sizeof(struct sockaddr_in));
 	if ( err < 0) {
 		fprintf(stderr, "Error while sending response message: %s\n" , strerror(errno));		
 	} else {
-		snprintf(msg, OUTPUT_LENGTH, "Sent %d bytes to host %s port %d: %s", err, inet_ntoa(dest.sin_addr), ntohs(dest.sin_port), buff);
-		fprintf(stdout, "%s\n", msg);
+		err = printf("Sent %d bytes to host %s port %d: %s\n", err, inet_ntoa(dest.sin_addr), ntohs(dest.sin_port), buff);
+		if (err < 0) {
+			fprintf(stderr, "Error while writting output: %s\n", strerror(errno));
+			exit(1);
+		}
 	}
 }
 
 void listen_port(int fd) {
 
-	int err,nb;
-	//TODO: check buffer and message sizes
-	//TODO: clean the buffer
-	//TODO: remove timeout
-	char buff[BUFFER_SIZE];
-	char msg[BUFFER_SIZE];
+	int err;
+	char buff[BUFFER_SIZE];	
 	socklen_t flen;
 	struct sockaddr_in from;
-	fd_set read_set;
-	struct timeval timeout;
-	
-	FD_ZERO(&read_set);
-	FD_SET(fd, &read_set);
-	timeout.tv_sec = TIMEOUT_SECS;
-	timeout.tv_usec = TIMEOUT_USECS;
 
-	nb = select(fd+1, &read_set, NULL, NULL, &timeout);
-	if (nb < 0) {
-		fprintf(stderr, "Error while setting timeout: %s\n", strerror(errno));		
-	}
-	if (nb == 0) {
-		//fprintf(stderr, "Timeout\n");			
-	}
-	if (FD_ISSET(fd, &read_set)){
-		flen = sizeof(struct sockaddr_in);
-		err = recvfrom( fd, buff, BUFFER_SIZE, 0, (struct sockaddr *) &from, &flen);
-		
-		if (err < 0)	 {
-			fprintf(stderr, "Error while receiving message: %s\n", strerror(errno));		
-		} else {
-			sprintf(msg, "Received %d bytes from host %s port %d: %s", err, inet_ntoa(from.sin_addr), ntohs(from.sin_port), buff);
-			fprintf(stdout, "%s\n", msg);
-			send_response(fd, (char *) &buff, from);
-		}	
-	}	
+	clear_buffer(buff);
+
+	flen = sizeof(struct sockaddr_in);
+	err = recvfrom( fd, buff, BUFFER_SIZE, 0, (struct sockaddr *) &from, &flen);		
+	if (err < 0)	 {
+		fprintf(stderr, "Error while receiving message: %s\n", strerror(errno));		
+	} else {
+		err = printf("Received %d bytes from host %s port %d: %s\n", err, inet_ntoa(from.sin_addr), ntohs(from.sin_port), buff);		
+		if (err < 0) {
+			fprintf(stderr, "Error while writting output: %s\n", strerror(errno));
+			exit(1);
+		}
+		send_response(fd, (char *) &buff, from);
+	}		
 }
 
 int main(int argc, char** argv) {

@@ -12,8 +12,7 @@
 #include <netdb.h>
 
 #define PORT_NUMBER 1234
-#define BUFFER_SIZE 500
-#define OUTPUT_LENGTH 255 //got to check this
+#define BUFFER_SIZE 64
 #define USEC_PER_SEC 100000
 #define MESSAGE "Echo"
 
@@ -48,12 +47,21 @@ void bind_socket(int fd) {
 	}
 }
 
+void clear_buffer(char *buff) {
+	int i;
+	for(i = 0 ; i < BUFFER_SIZE; i++){
+		buff[i] = '\0';
+	}	
+}
+
 int listen_port(int fd) {	
 	int err;	
 	char buff[BUFFER_SIZE];	
 	socklen_t flen;
 	struct sockaddr_in from;
 	
+	clear_buffer(buff);
+
 	flen = sizeof(struct sockaddr_in);	
 	err = recvfrom(fd, buff, BUFFER_SIZE, 0, (struct sockaddr *) &from, &flen);	
 	if (err < 0) {
@@ -67,12 +75,13 @@ int listen_port(int fd) {
 void send_message(int fd, char *dest_hostname){
 	int err;
 	long int init_time, fin_time;
-	double tot_time;
+	double rtt;
 	char buff[BUFFER_SIZE] = MESSAGE;	
 	struct sockaddr_in dest;
 	struct hostent *he;
 	struct timeval *tv1 = malloc(sizeof(struct timeval));
 	struct timeval *tv2 = malloc(sizeof(struct timeval));
+	struct timeval *tv_tot = malloc(sizeof(struct timeval));
 
 	he = gethostbyname(dest_hostname);
 	if( he == NULL) {
@@ -83,6 +92,7 @@ void send_message(int fd, char *dest_hostname){
 	dest.sin_family = AF_INET;
 	dest.sin_port = htons(PORT_NUMBER);
 	memcpy(&dest.sin_addr, he->h_addr_list[0], he->h_length);
+	
 	err = sendto(fd, buff, BUFFER_SIZE, 0, (struct sockaddr*) &dest, sizeof(struct sockaddr_in));
 	if ( err < 0) {
 		fprintf(stderr, "Error while sending message: %s\n", strerror(errno));		
@@ -96,14 +106,19 @@ void send_message(int fd, char *dest_hostname){
 			if (fin_time < 0) {
 				fprintf(stderr, "Error while setting the timer: %s\n", strerror(errno));		
 			}		
-			tot_time = ((double) (tv2->tv_usec - tv1->tv_usec)) / USEC_PER_SEC;
-			printf("The RTT was: %f seconds.\n", tot_time);
+			timersub(tv2,tv1,tv_tot);			
+			rtt = ((double) (tv_tot->tv_usec)) / USEC_PER_SEC;			
+			err = printf("The RTT was: %f seconds.\n", rtt);
+			if (err < 0) {
+				fprintf(stderr, "Error while writting output: %s\n", strerror(errno));
+				exit(1);
+			}
 		}
 	}
 	free(tv1);
 	free(tv2);
+	free(tv_tot);
 }
-
 
 int main(int argc, char** argv) {
 	int socket_fd;
